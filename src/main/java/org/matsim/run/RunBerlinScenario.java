@@ -19,7 +19,7 @@
 
 package org.matsim.run;
 
-import ch.sbb.matsim.routing.pt.raptor.RaptorIntermodalAccessEgress;
+//import ch.sbb.matsim.routing.pt.raptor.RaptorIntermodalAccessEgress;
 import ch.sbb.matsim.routing.pt.raptor.SwissRailRaptorModule;
 import com.google.inject.Singleton;
 import org.apache.log4j.Logger;
@@ -33,16 +33,20 @@ import org.matsim.contrib.drt.routing.DrtRouteFactory;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigGroup;
 import org.matsim.core.config.ConfigUtils;
+import org.matsim.core.config.groups.PlanCalcScoreConfigGroup;
 import org.matsim.core.config.groups.PlanCalcScoreConfigGroup.ActivityParams;
 import org.matsim.core.config.groups.PlansCalcRouteConfigGroup;
 import org.matsim.core.config.groups.QSimConfigGroup.TrafficDynamics;
+import org.matsim.core.config.groups.StrategyConfigGroup;
 import org.matsim.core.config.groups.VspExperimentalConfigGroup;
 import org.matsim.core.controler.AbstractModule;
 import org.matsim.core.controler.Controler;
+import org.matsim.core.controler.OutputDirectoryHierarchy;
 import org.matsim.core.controler.OutputDirectoryLogging;
 import org.matsim.core.gbl.Gbl;
 import org.matsim.core.gbl.MatsimRandom;
 import org.matsim.core.population.routes.RouteFactories;
+import org.matsim.core.replanning.strategies.DefaultPlanStrategiesModule;
 import org.matsim.core.router.AnalysisMainModeIdentifier;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.scoring.functions.ScoringParametersForPerson;
@@ -59,6 +63,7 @@ import java.util.Random;
 
 import static org.matsim.core.config.groups.ControlerConfigGroup.RoutingAlgorithmType.FastAStarLandmarks;
 
+
 /**
 * @author ikaddoura
 */
@@ -74,14 +79,16 @@ public final class RunBerlinScenario {
 		}
 		
 		if ( args.length==0 ) {
-			args = new String[] {"scenarios/berlin-v5.5-10pct/input/berlin-v5.5-10pct.config.xml"}  ;
+			args = new String[] {"./scenarios/berlin-v5.5-1pct/input/berlin-v5.5-1pct.config.xml"}  ;
 		}
 
 		Config config = prepareConfig( args ) ;
+		config.controler().setOverwriteFileSetting(OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
 		Scenario scenario = prepareScenario( config ) ;
 		Controler controler = prepareControler( scenario ) ;
 		controler.run();
 	}
+
 
 	public static Controler prepareControler( Scenario scenario ) {
 		// note that for something like signals, and presumably drt, one needs the controler object
@@ -181,16 +188,62 @@ public final class RunBerlinScenario {
 		final Config config = ConfigUtils.loadConfig( args[ 0 ], customModulesAll );
 		
 		config.controler().setRoutingAlgorithmType( FastAStarLandmarks );
+		{
+			PlanCalcScoreConfigGroup.ModeParams pars = new PlanCalcScoreConfigGroup.ModeParams("car");
+			pars.setConstant(-0.53);
+			pars.setMarginalUtilityOfTraveling(-4.83);
+			pars.setMonetaryDistanceRate(0.149);
+			config.planCalcScore().addModeParams(pars);
+
+			PlanCalcScoreConfigGroup.ModeParams pars1 = new PlanCalcScoreConfigGroup.ModeParams("ride");
+			pars1.setConstant(-1.24);
+			pars1.setMarginalUtilityOfTraveling(-4.83);
+			pars1.setMonetaryDistanceRate(0.149);
+			config.planCalcScore().addModeParams(pars1);
+
+			PlanCalcScoreConfigGroup.ModeParams pars2 = new PlanCalcScoreConfigGroup.ModeParams("pt");
+			pars2.setConstant(0.40);
+			pars2.setMarginalUtilityOfTraveling(-4.83);
+			pars2.setDailyMonetaryConstant(3);
+			config.planCalcScore().addModeParams(pars2);
+
+
+			PlanCalcScoreConfigGroup.ModeParams pars3 = new PlanCalcScoreConfigGroup.ModeParams("walk");
+			pars3.setConstant(0);
+			pars3.setMarginalUtilityOfTraveling(-4.83);
+			//pars4.setMarginalUtilityOfDistance();
+			config.planCalcScore().addModeParams(pars3);
+
+			PlanCalcScoreConfigGroup.ModeParams pars4 = new PlanCalcScoreConfigGroup.ModeParams("bike");
+			pars4.setConstant(-1.35);
+			pars4.setMarginalUtilityOfTraveling(-4.83);
+			//pars4.setMarginalUtilityOfDistance();
+			config.planCalcScore().addModeParams(pars4);
+
+
+		}
 		
 		config.subtourModeChoice().setProbaForRandomSingleTripMode( 0.5 );
+		config.planCalcScore().setMarginalUtilityOfMoney(1);
 		
 		config.plansCalcRoute().setRoutingRandomness( 3. );
 		config.plansCalcRoute().removeModeRoutingParams(TransportMode.ride);
 		config.plansCalcRoute().removeModeRoutingParams(TransportMode.pt);
 		config.plansCalcRoute().removeModeRoutingParams(TransportMode.bike);
 		config.plansCalcRoute().removeModeRoutingParams("undefined");
+
+		//config.planCalcScore().setPerforming_utils_hr(6);
 		
 		config.qsim().setInsertingWaitingVehiclesBeforeDrivingVehicles( true );
+
+
+		{
+			StrategyConfigGroup.StrategySettings stratSets = new StrategyConfigGroup.StrategySettings();
+			stratSets.setStrategyName(DefaultPlanStrategiesModule.DefaultStrategy.ChangeSingleTripMode);
+			stratSets.setWeight(0.1);
+			config.strategy().addStrategySettings(stratSets);
+			config.changeMode().setModes(new String[]{"car", "ride","pt", "bike","walk", "bike"});
+		}
 				
 		// vsp defaults
 		config.vspExperimental().setVspDefaultsCheckingLevel( VspExperimentalConfigGroup.VspDefaultsCheckingLevel.info );
