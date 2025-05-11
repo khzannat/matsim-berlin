@@ -242,6 +242,18 @@ public final class RunBerlinScenario {
 			stratSets.setStrategyName(DefaultPlanStrategiesModule.DefaultStrategy.ChangeSingleTripMode);
 			stratSets.setWeight(0.1);
 			config.strategy().addStrategySettings(stratSets);
+
+			StrategyConfigGroup.StrategySettings stratSets2 = new StrategyConfigGroup.StrategySettings();
+			stratSets2.setStrategyName(DefaultPlanStrategiesModule.DefaultStrategy.ReRoute);
+			stratSets2.setWeight(0.1);
+			config.strategy().addStrategySettings(stratSets2);
+
+			StrategyConfigGroup.StrategySettings stratSets3 = new StrategyConfigGroup.StrategySettings();
+			stratSets3.setStrategyName(DefaultPlanStrategiesModule.DefaultSelector.ChangeExpBeta);
+			stratSets3.setWeight(0.8);
+			config.strategy().addStrategySettings(stratSets3);
+
+
 			config.changeMode().setModes(new String[]{"car", "ride","pt", "bike","walk", "bike"});
 		}
 				
